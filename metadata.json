@@ -1,0 +1,8 @@
+{
+  "name": "HNGU Library Management",
+  "description": "Next-generation digital university library management system for HNGU (Hemchandracharya North Gujarat University) with QR turnstile access, digital ID cards, real-time book tracking, circulation ledger, and administrative command center.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

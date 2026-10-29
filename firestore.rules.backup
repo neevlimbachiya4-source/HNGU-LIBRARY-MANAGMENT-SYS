@@ -1,0 +1,83 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Check if caller is authenticated and recognized as an admin or librarian
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email.lower() == 'neevlimbachiya45@gmail.com' ||
+        (exists(/databases/$(database)/documents/admins/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role in ['admin', 'librarian'])
+      );
+    }
+
+    // Admins collection:
+    // Only verified admins can read admin profiles.
+    // Creation is ONLY permitted for the pre-authorized administrator email or an existing admin.
+    // Ordinary users CANNOT self-create documents in /admins to assign themselves admin roles.
+    match /admins/{adminId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn() && (
+        request.auth.token.email.lower() == 'neevlimbachiya45@gmail.com' ||
+        isAdmin()
+      );
+      allow update, delete: if isAdmin();
+    }
+
+    // Books catalog:
+    // Read: Available to all scholars and visitors (search, details, Board/Line location, availability).
+    // Mutations (Create, Update, Delete): STRICTLY RESTRICTED TO AUTHORIZED ADMINS/LIBRARIANS.
+    // Students can NEVER add, edit, or delete books.
+    match /books/{bookId} {
+      allow read: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Students collection:
+    // Read: Directory read for student validation, authentication, and QR scan resolution.
+    // Create: Allowed for student registration ONLY with active status.
+    // Update: Strictly restricted to authorized admins/librarians.
+    // Delete: Strictly restricted to authorized admins.
+    match /students/{studentDocId} {
+      allow read: if true;
+      allow create: if request.resource.data.status == 'active' &&
+                       (!('role' in request.resource.data) || request.resource.data.role == 'student');
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Library visits (Turnstile logs):
+    // Read: Allowed for student personal history and admin activity monitor.
+    // Create, Update, Delete: STRICTLY RESTRICTED TO AUTHORIZED ADMINS/LIBRARIANS.
+    // Turnstile Access Station operations can only be executed by authenticated library staff.
+    match /library_visits/{visitId} {
+      allow read: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Book transactions (Issue & Return ledger):
+    // Read: Allowed for student personal borrowing ledger and admin records.
+    // Create, Update, Delete: STRICTLY RESTRICTED TO AUTHORIZED ADMINS/LIBRARIANS.
+    // Students can NEVER create, issue, return, or delete transactions.
+    match /book_transactions/{transactionId} {
+      allow read: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+  }
+}

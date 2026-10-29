@@ -1,0 +1,117 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Server Service Account checked strictly by UID (Never hardcoded email)
+    // Configured with Firebase Auth UID of SYSTEM_SERVICE_EMAIL user.
+    function isServer() {
+      return isSignedIn() && request.auth.uid == 'DHKvkfL5qNRsrK7F1DJs0SynIEl1';
+    }
+
+    // Owner verification with verified email
+    function isVerifiedOwner() {
+      return isSignedIn() &&
+        request.auth.token.email.lower() == 'neevlimbachiya45@gmail.com' &&
+        request.auth.token.email_verified == true;
+    }
+
+    // Explicit administrator role in /admins collection
+    function isExistingAdmin() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Staff role (admin or librarian) for operational duties
+    function isExistingStaff() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role in ['admin', 'librarian'];
+    }
+
+    // General staff check: Verified Owner OR existing Admin/Librarian (server user is NOT in admins)
+    function isAdmin() {
+      return isVerifiedOwner() || isExistingStaff();
+    }
+
+    // Strict field allow-list and validation for server-side student creation
+    function isValidStudentCreate() {
+      let data = request.resource.data;
+      let requiredFields = [
+        'name', 'studentId', 'college', 'course', 'department', 'semester',
+        'mobile', 'email', 'passwordHash', 'passwordScrypt', 'photo',
+        'personalQrId', 'membershipId', 'role', 'status', 'isInside',
+        'currentVisitId', 'createdAt'
+      ];
+      return data.keys().hasAll(requiredFields) &&
+             data.keys().hasOnly(requiredFields) &&
+             data.name is string && data.name.size() >= 2 && data.name.size() <= 80 &&
+             data.studentId is string && data.studentId.size() >= 3 && data.studentId.size() <= 30 &&
+             data.mobile is string && data.mobile.matches('^[6-9][0-9]{9}$') &&
+             data.email is string && data.email.size() <= 100 &&
+             data.role == 'student' &&
+             data.status == 'active' &&
+             data.isInside == false &&
+             data.passwordScrypt is string &&
+             data.passwordHash is string;
+    }
+
+    // Admins collection:
+    // Read: Only authorized staff (admin or librarian)
+    // Create, Update, Delete: STRICTLY RESTRICTED to verified owner OR existing role 'admin'.
+    // A 'librarian' CANNOT create, update, or delete admin documents or promote anyone to admin.
+    match /admins/{adminId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if isVerifiedOwner() || isExistingAdmin();
+    }
+
+    // Books catalog:
+    // Read: Public catalogue for scholars and students.
+    // Mutations (Create, Update, Delete): Strictly staff (admin/librarian).
+    match /books/{bookId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Students collection:
+    // Read: Restricted to staff or server user.
+    // Create: Restricted to server user with strict field allow-list and validation (denied to clients).
+    // Update: Staff can update; Server can ONLY update passwordScrypt during transparent migration.
+    // Delete: Strictly staff only (server user cannot delete).
+    match /students/{studentDocId} {
+      allow read: if isAdmin() || isServer();
+      allow create: if isServer() && isValidStudentCreate();
+      allow update: if isAdmin() || (
+        isServer() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['passwordScrypt'])
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Library visits (Turnstile logs):
+    // Read: Staff or server user (for student's visits API).
+    // Mutations: Strictly staff only (kiosk stations run under staff auth; server cannot write visits).
+    match /library_visits/{visitId} {
+      allow read: if isAdmin() || isServer();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Book transactions (Issue & Return ledger):
+    // Read: Staff or server user (for student's loans API).
+    // Mutations: Strictly staff only (circulation desk runs under staff auth; server cannot write transactions).
+    match /book_transactions/{transactionId} {
+      allow read: if isAdmin() || isServer();
+      allow create, update, delete: if isAdmin();
+    }
+  }
+}

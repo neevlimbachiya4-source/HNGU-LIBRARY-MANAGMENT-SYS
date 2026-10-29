@@ -1,0 +1,127 @@
+{
+  "entities": {
+    "Admin": {
+      "title": "Admin",
+      "description": "Authorized librarian or library administrator",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["librarian", "admin"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Student": {
+      "title": "Student",
+      "description": "Registered library student cardholder",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "maxLength": 100 },
+        "studentId": { "type": "string", "maxLength": 50 },
+        "college": { "type": "string", "maxLength": 150 },
+        "course": { "type": "string", "maxLength": 100 },
+        "department": { "type": "string", "maxLength": 100 },
+        "semester": { "type": "string", "maxLength": 50 },
+        "mobile": { "type": "string", "maxLength": 30 },
+        "email": { "type": "string", "maxLength": 100 },
+        "passwordHash": { "type": "string" },
+        "photo": { "type": "string" },
+        "personalQrId": { "type": "string", "maxLength": 100 },
+        "membershipId": { "type": "string", "maxLength": 50 },
+        "status": { "type": "string", "enum": ["active", "blocked"] },
+        "isInside": { "type": "boolean" },
+        "currentVisitId": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "lastVisitAt": { "type": "string" }
+      },
+      "required": ["name", "studentId", "email", "personalQrId", "membershipId", "status"]
+    },
+    "Book": {
+      "title": "Book",
+      "description": "Library catalog volume",
+      "type": "object",
+      "properties": {
+        "bookId": { "type": "string", "maxLength": 50 },
+        "title": { "type": "string", "maxLength": 200 },
+        "author": { "type": "string", "maxLength": 150 },
+        "category": { "type": "string", "maxLength": 100 },
+        "isbn": { "type": "string", "maxLength": 50 },
+        "totalCopies": { "type": "number" },
+        "availableCopies": { "type": "number" },
+        "coverImage": { "type": "string" },
+        "rackLocation": { "type": "string", "maxLength": 100 },
+        "bookQrId": { "type": "string", "maxLength": 50 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["bookId", "title", "author", "totalCopies", "availableCopies", "bookQrId"]
+    },
+    "LibraryVisit": {
+      "title": "LibraryVisit",
+      "description": "Entry and exit log record",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string" },
+        "studentDocId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "studentDepartment": { "type": "string" },
+        "entryDate": { "type": "string" },
+        "entryTime": { "type": "string" },
+        "entryTimestamp": { "type": "number" },
+        "exitDate": { "type": "string" },
+        "exitTime": { "type": "string" },
+        "exitTimestamp": { "type": "number" },
+        "duration": { "type": "string" },
+        "active": { "type": "boolean" }
+      },
+      "required": ["studentId", "entryDate", "entryTime", "entryTimestamp", "active"]
+    },
+    "BookTransaction": {
+      "title": "BookTransaction",
+      "description": "Book issue and return ledger record",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string" },
+        "studentDocId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "studentEmail": { "type": "string" },
+        "bookId": { "type": "string" },
+        "bookDocId": { "type": "string" },
+        "bookTitle": { "type": "string" },
+        "bookAuthor": { "type": "string" },
+        "issueDate": { "type": "string" },
+        "issueTime": { "type": "string" },
+        "issueTimestamp": { "type": "number" },
+        "dueDate": { "type": "string" },
+        "returnDate": { "type": "string" },
+        "returnTime": { "type": "string" },
+        "returnTimestamp": { "type": "number" },
+        "status": { "type": "string", "enum": ["Issued", "Returned", "Overdue"] }
+      },
+      "required": ["studentId", "bookId", "bookTitle", "issueDate", "dueDate", "status"]
+    }
+  },
+  "firestore": {
+    "/admins/{adminId}": {
+      "schema": "Admin",
+      "description": "Authorized librarian and administrator profiles"
+    },
+    "/students/{studentId}": {
+      "schema": "Student",
+      "description": "Student credentials, status, and ID card information"
+    },
+    "/books/{bookId}": {
+      "schema": "Book",
+      "description": "Physical book catalog and copies tracking"
+    },
+    "/library_visits/{visitId}": {
+      "schema": "LibraryVisit",
+      "description": "Entry and exit tracking records"
+    },
+    "/book_transactions/{transactionId}": {
+      "schema": "BookTransaction",
+      "description": "Book issue and return transaction logs"
+    }
+  }
+}
